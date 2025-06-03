@@ -1,13 +1,93 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useDashboardStore } from "@/stores/dashboard-store"
 import { useNavigation } from "@/hooks/use-navigation"
 import { cn } from "@/lib/utils"
-import { ArrowRight } from "lucide-react"
+import { ArrowRight, GripVertical } from "lucide-react"
 import { getIcon } from "@/utils/icons"
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core"
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  rectSortingStrategy, // Use rectSortingStrategy for grid layout
+  useSortable,
+} from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
+import type { DashboardStat } from "@/types/dashboard"
+
+interface SortableStatCardProps {
+  stat: DashboardStat
+  index: number
+}
+
+function SortableStatCard({ stat, index }: SortableStatCardProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: stat.title }) // Use a unique ID, title should be unique
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : undefined,
+    opacity: isDragging ? 0.8 : 1,
+  }
+
+  const IconComponent = getIcon(stat.iconName)
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} className="relative">
+      <Card
+        className={cn(
+          "overflow-hidden transition-all duration-300 hover:shadow-lg hover:scale-105 border-l-4 border-l-transparent hover:border-l-primary bg-gradient-to-br from-card to-card/50",
+          "animate-fade-in",
+          { "animate-delay-100": index === 1 },
+          { "animate-delay-200": index === 2 },
+          { "animate-delay-300": index === 3 },
+        )}
+      >
+        <button
+          {...listeners}
+          className="absolute top-2 right-2 p-1 cursor-grab text-muted-foreground hover:text-foreground z-10"
+        >
+          <GripVertical className="h-5 w-5" />
+        </button>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
+          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center transition-transform hover:scale-110">
+            <IconComponent className={`h-5 w-5 ${stat.color}`} />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{stat.value}</div>
+          <p className="text-xs text-muted-foreground">
+            <span
+              className={
+                stat.change.startsWith("+")
+                  ? "text-green-600 font-medium"
+                  : stat.change.startsWith("-")
+                    ? "text-red-600 font-medium"
+                    : "text-gray-600"
+              }
+            >
+              {stat.change}
+            </span>{" "}
+            from last month
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
 
 export default function Dashboard() {
   const { navigate } = useNavigation()
@@ -17,13 +97,38 @@ export default function Dashboard() {
     quickActions: storeActions,
     isLoading,
     initializeData,
-    refreshDashboard,
   } = useDashboardStore()
 
+  const [orderedStats, setOrderedStats] = useState<DashboardStat[]>(storeStats)
+
   useEffect(() => {
-    // Initialize data if not already loaded
     initializeData()
   }, [initializeData])
+
+  useEffect(() => {
+    setOrderedStats(storeStats)
+  }, [storeStats])
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  )
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (over && active.id !== over.id) {
+      setOrderedStats((items) => {
+        const oldIndex = items.findIndex((item) => item.title === active.id)
+        const newIndex = items.findIndex((item) => item.title === over.id)
+        const newOrder = arrayMove(items, oldIndex, newIndex)
+        // Optionally, save newOrder to localStorage or backend via store action
+        // useDashboardStore.getState().setStatsOrder(newOrder.map(s => s.title));
+        return newOrder
+      })
+    }
+  }
 
   const handleQuickAction = (href: string) => {
     navigate(href)
@@ -31,7 +136,7 @@ export default function Dashboard() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6 animate-fade-in">
+      <div className="space-y-6 animate-fade-in p-6">
         <div className="animate-pulse">
           <div className="h-8 bg-muted rounded w-64 mb-2"></div>
           <div className="h-4 bg-muted rounded w-96"></div>
@@ -55,7 +160,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in p-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
           CMMS Dashboard
@@ -64,47 +169,15 @@ export default function Dashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {storeStats.map((stat, index) => {
-          const IconComponent = getIcon(stat.iconName)
-          return (
-            <Card
-              key={stat.title}
-              className={cn(
-                "overflow-hidden transition-all duration-300 hover:shadow-lg hover:scale-105 border-l-4 border-l-transparent hover:border-l-primary bg-gradient-to-br from-card to-card/50",
-                "animate-fade-in",
-                { "animate-delay-100": index === 1 },
-                { "animate-delay-200": index === 2 },
-                { "animate-delay-300": index === 3 },
-              )}
-            >
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center transition-transform hover:scale-110">
-                  <IconComponent className={`h-5 w-5 ${stat.color}`} />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stat.value}</div>
-                <p className="text-xs text-muted-foreground">
-                  <span
-                    className={
-                      stat.change.startsWith("+")
-                        ? "text-green-600 font-medium"
-                        : stat.change.startsWith("-")
-                          ? "text-red-600 font-medium"
-                          : "text-gray-600"
-                    }
-                  >
-                    {stat.change}
-                  </span>{" "}
-                  from last month
-                </p>
-              </CardContent>
-            </Card>
-          )
-        })}
-      </div>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={orderedStats.map((stat) => stat.title)} strategy={rectSortingStrategy}>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {orderedStats.map((stat, index) => (
+              <SortableStatCard key={stat.title} stat={stat} index={index} />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Recent Activities */}

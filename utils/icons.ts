@@ -10,6 +10,12 @@ import {
   BarChart3,
   Settings,
   UserCog,
+  Building,
+  ShoppingCart,
+  HardHat,
+  PenToolIcon as Tool,
+  ShieldCheck,
+  LayoutDashboard,
   type LucideIcon,
 } from "lucide-react"
 
@@ -25,6 +31,12 @@ const iconMap: Record<string, LucideIcon> = {
   BarChart3,
   Settings,
   UserCog,
+  Building,
+  ShoppingCart,
+  HardHat,
+  Tool,
+  ShieldCheck, // Added
+  LayoutDashboard, // Added
 }
 
 export function getIcon(iconName: string): LucideIcon {
