@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -11,15 +11,15 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Search, Edit, Trash2 } from "lucide-react"
+import { Plus, Search, Edit, Trash2, MoreVertical } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useDepartmentsStore } from "@/stores/departments-store"
 import { useDebounce } from "@/hooks/use-debounce"
+import type { Department, DepartmentStatus } from "@/types/department"
 
 export default function DepartmentsPage() {
   const {
@@ -27,13 +27,20 @@ export default function DepartmentsPage() {
     searchTerm,
     isLoading,
     isDialogOpen,
+    editingDepartment,
     setSearchTerm,
     setDialogOpen,
+    setEditingDepartment,
     fetchDepartments,
     addDepartment,
     updateDepartment,
     deleteDepartment,
   } = useDepartmentsStore()
+
+  const [name, setName] = useState("")
+  const [description, setDescription] = useState("")
+  const [manager, setManager] = useState("")
+  const [status, setStatus] = useState<DepartmentStatus>("active")
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300)
 
@@ -41,26 +48,54 @@ export default function DepartmentsPage() {
     fetchDepartments()
   }, [fetchDepartments])
 
-  useEffect(() => {
-    setSearchTerm(debouncedSearchTerm)
-  }, [debouncedSearchTerm, setSearchTerm])
+  // Removed useEffect for debouncedSearchTerm to avoid loop, setSearchTerm in store handles filtering
 
-  const handleAddDepartment = () => {
-    // This would typically get data from a form
-    const newDepartment = {
-      name: "New Department",
-      description: "Department description",
-      manager: "Manager Name",
-      employeeCount: 0,
-      status: "active" as const,
+  useEffect(() => {
+    if (editingDepartment) {
+      setName(editingDepartment.name)
+      setDescription(editingDepartment.description)
+      setManager(editingDepartment.manager)
+      setStatus(editingDepartment.status)
+    } else {
+      // Reset form for adding new
+      setName("")
+      setDescription("")
+      setManager("")
+      setStatus("active")
     }
-    addDepartment(newDepartment)
+  }, [editingDepartment, isDialogOpen]) // Depend on isDialogOpen to reset form when dialog closes
+
+  const handleSubmit = () => {
+    if (!name || !manager) {
+      alert("Department Name and Manager are required.")
+      return
+    }
+    const departmentData = { name, description, manager, status }
+    if (editingDepartment) {
+      updateDepartment(editingDepartment.id, departmentData)
+    } else {
+      addDepartment(departmentData)
+    }
     setDialogOpen(false)
+    setEditingDepartment(null) // Clear editing state
+  }
+
+  const handleOpenDialog = (department: Department | null = null) => {
+    setEditingDepartment(department)
+    setDialogOpen(true)
+  }
+
+  const handleDialogClose = (open: boolean) => {
+    if (!open) {
+      setEditingDepartment(null) // Clear editing state when dialog is closed
+    }
+    setDialogOpen(open)
   }
 
   if (isLoading) {
     return (
-      <div className="space-y-6 animate-fade-in">
+      <div className="space-y-6 animate-fade-in p-6">
+        {/* Skeleton Loader */}
         <div className="animate-pulse">
           <div className="h-8 bg-muted rounded w-64 mb-2"></div>
           <div className="h-4 bg-muted rounded w-96"></div>
@@ -71,7 +106,7 @@ export default function DepartmentsPage() {
         <div className="border rounded-lg">
           <div className="animate-pulse p-4">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="flex space-x-4 py-4">
+              <div key={i} className="flex space-x-4 py-4 border-b border-muted last:border-b-0">
                 <div className="h-4 bg-muted rounded flex-1"></div>
                 <div className="h-4 bg-muted rounded flex-1"></div>
                 <div className="h-4 bg-muted rounded flex-1"></div>
@@ -85,52 +120,77 @@ export default function DepartmentsPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in p-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Departments</h1>
           <p className="text-muted-foreground">Manage organizational departments and their responsibilities</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Department
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Add New Department</DialogTitle>
-              <DialogDescription>Create a new department for your organization.</DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="name" className="text-right">
-                  Name
-                </Label>
-                <Input id="name" className="col-span-3" />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="manager" className="text-right">
-                  Manager
-                </Label>
-                <Input id="manager" className="col-span-3" />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="description" className="text-right">
-                  Description
-                </Label>
-                <Textarea id="description" className="col-span-3" />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="submit" onClick={handleAddDepartment}>
-                Save Department
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={() => handleOpenDialog()}>
+          <Plus className="mr-2 h-4 w-4" />
+          Add Department
+        </Button>
       </div>
+
+      <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>{editingDepartment ? "Edit" : "Add New"} Department</DialogTitle>
+            <DialogDescription>
+              {editingDepartment
+                ? "Update the details of this department."
+                : "Create a new department for your organization."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="name" className="text-right">
+                Name
+              </Label>
+              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="manager" className="text-right">
+                Manager
+              </Label>
+              <Input id="manager" value={manager} onChange={(e) => setManager(e.target.value)} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="description" className="text-right">
+                Description
+              </Label>
+              <Textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="status" className="text-right">
+                Status
+              </Label>
+              <select
+                id="status"
+                value={status}
+                onChange={(e) => setStatus(e.target.value as DepartmentStatus)}
+                className="col-span-3 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm p-2 border"
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => handleDialogClose(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" onClick={handleSubmit}>
+              Save Department
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="flex items-center space-x-2">
         <div className="relative flex-1 max-w-sm">
@@ -144,7 +204,7 @@ export default function DepartmentsPage() {
         </div>
       </div>
 
-      <div className="border rounded-lg">
+      <div className="border rounded-lg overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -160,7 +220,7 @@ export default function DepartmentsPage() {
             {filteredDepartments.map((department) => (
               <TableRow key={department.id} className="hover:bg-muted/50 transition-colors">
                 <TableCell className="font-medium">{department.name}</TableCell>
-                <TableCell>{department.description}</TableCell>
+                <TableCell className="min-w-[200px]">{department.description}</TableCell>
                 <TableCell>{department.manager}</TableCell>
                 <TableCell>{department.employeeCount}</TableCell>
                 <TableCell>
@@ -171,15 +231,18 @@ export default function DepartmentsPage() {
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" className="h-8 w-8 p-0">
                         <span className="sr-only">Open menu</span>
-                        <Edit className="h-4 w-4" />
+                        <MoreVertical className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => updateDepartment(department.id, { status: "active" })}>
+                      <DropdownMenuItem onClick={() => handleOpenDialog(department)}>
                         <Edit className="mr-2 h-4 w-4" />
                         Edit
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="text-red-600" onClick={() => deleteDepartment(department.id)}>
+                      <DropdownMenuItem
+                        className="text-red-600 hover:!text-red-600 hover:!bg-red-100"
+                        onClick={() => deleteDepartment(department.id)}
+                      >
                         <Trash2 className="mr-2 h-4 w-4" />
                         Delete
                       </DropdownMenuItem>
@@ -191,6 +254,9 @@ export default function DepartmentsPage() {
           </TableBody>
         </Table>
       </div>
+      {filteredDepartments.length === 0 && !isLoading && (
+        <p className="text-center text-muted-foreground py-8">No departments found matching your search.</p>
+      )}
     </div>
   )
 }

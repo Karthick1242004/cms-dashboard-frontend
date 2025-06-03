@@ -1,4 +1,6 @@
-export const navigation = [
+import type { NavigationItem } from "@/types/navigation"
+
+export const navigation: NavigationItem[] = [
   {
     name: "Dashboard",
     href: "/",
@@ -26,8 +28,15 @@ export const navigation = [
   },
   {
     name: "Assets",
-    href: "/assets",
+    href: "/assets", // Parent link, can lead to "All Assets" or a general assets overview
     iconName: "Package",
+    subItems: [
+      { name: "All Assets", href: "/assets", iconName: "Archive" }, // Or a more specific icon
+      { name: "Facilities", href: "/assets/facilities", iconName: "Building" }, // Example, choose appropriate icons
+      { name: "Products", href: "/assets/products", iconName: "ShoppingCart" },
+      { name: "Equipment", href: "/assets/equipment", iconName: "HardHat" },
+      { name: "Tools", href: "/assets/tools", iconName: "Tool" },
+    ],
   },
   {
     name: "Parts",
@@ -53,5 +62,19 @@ export const navigation = [
     name: "Profile",
     href: "/profile",
     iconName: "UserCog",
+  },
+  // New Admin Section for Feature Builder
+  {
+    name: "Admin", // This could be a parent item if more admin features are added
+    href: "/admin", // Or directly to feature-builder if it's the only one
+    iconName: "ShieldCheck", // Example icon for Admin
+    subItems: [
+      {
+        name: "Feature Builder",
+        href: "/admin/feature-builder",
+        iconName: "LayoutDashboard", // Using a generic dashboard/layout icon
+      },
+      // Add other admin links here if needed
+    ],
   },
 ]

@@ -1,147 +1,136 @@
 import { create } from "zustand"
-import { devtools, persist } from "zustand/middleware"
-import { immer } from "zustand/middleware/immer"
-import type { Department, DepartmentsState } from "@/types/department"
+import type { Department } from "@/types/department"
 
-export const useDepartmentsStore = create<DepartmentsState>()(
-  devtools(
-    persist(
-      immer((set, get) => ({
-        departments: [],
-        filteredDepartments: [],
-        searchTerm: "",
-        isLoading: false,
-        isDialogOpen: false,
-        selectedDepartment: null,
+interface DepartmentsState {
+  departments: Department[]
+  filteredDepartments: Department[]
+  searchTerm: string
+  isLoading: boolean
+  isDialogOpen: boolean
+  editingDepartment: Department | null // To store department being edited
+  fetchDepartments: () => Promise<void>
+  addDepartment: (
+    department: Omit<Department, "id" | "employeeCount" | "status"> &
+      Partial<Pick<Department, "employeeCount" | "status">>,
+  ) => void
+  updateDepartment: (id: string, updates: Partial<Omit<Department, "id">>) => void
+  deleteDepartment: (id: string) => void
+  setSearchTerm: (term: string) => void
+  setDialogOpen: (open: boolean) => void
+  setEditingDepartment: (department: Department | null) => void // Setter for editingDepartment
+}
 
-        setDepartments: (departments) =>
-          set((state) => {
-            state.departments = departments
-            state.filteredDepartments = departments
-          }),
+// Mock data for departments
+const mockDepartments: Department[] = [
+  {
+    id: "1",
+    name: "Maintenance",
+    description: "Handles all maintenance tasks.",
+    manager: "John Doe",
+    employeeCount: 15,
+    status: "active",
+  },
+  {
+    id: "2",
+    name: "Operations",
+    description: "Manages daily operations.",
+    manager: "Jane Smith",
+    employeeCount: 25,
+    status: "active",
+  },
+  {
+    id: "3",
+    name: "Logistics",
+    description: "Oversees supply chain and inventory.",
+    manager: "Robert Brown",
+    employeeCount: 10,
+    status: "inactive",
+  },
+  {
+    id: "4",
+    name: "IT Support",
+    description: "Provides technical assistance.",
+    manager: "Alice Green",
+    employeeCount: 8,
+    status: "active",
+  },
+]
 
-        addDepartment: (department) =>
-          set((state) => {
-            const newDepartment = {
-              ...department,
-              id: Math.max(...state.departments.map((d) => d.id), 0) + 1,
-            }
-            state.departments.push(newDepartment)
-            state.filteredDepartments = state.departments.filter(
-              (dept) =>
-                dept.name.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
-                dept.description.toLowerCase().includes(state.searchTerm.toLowerCase()),
-            )
-          }),
+export const useDepartmentsStore = create<DepartmentsState>((set, get) => ({
+  departments: [],
+  filteredDepartments: [],
+  searchTerm: "",
+  isLoading: true,
+  isDialogOpen: false,
+  editingDepartment: null,
 
-        updateDepartment: (id, updates) =>
-          set((state) => {
-            const index = state.departments.findIndex((d) => d.id === id)
-            if (index !== -1) {
-              state.departments[index] = { ...state.departments[index], ...updates }
-              get().filterDepartments()
-            }
-          }),
+  fetchDepartments: async () => {
+    set({ isLoading: true })
+    // Simulate API call
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+    set({ departments: mockDepartments, filteredDepartments: mockDepartments, isLoading: false })
+  },
 
-        deleteDepartment: (id) =>
-          set((state) => {
-            state.departments = state.departments.filter((d) => d.id !== id)
-            get().filterDepartments()
-          }),
+  addDepartment: (departmentData) => {
+    const newDepartment: Department = {
+      id: String(Date.now()),
+      employeeCount: 0,
+      status: "active",
+      ...departmentData,
+    }
+    set((state) => {
+      const updatedDepartments = [...state.departments, newDepartment]
+      return {
+        departments: updatedDepartments,
+        filteredDepartments: updatedDepartments.filter(
+          (dep) =>
+            dep.name.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
+            dep.description.toLowerCase().includes(state.searchTerm.toLowerCase()),
+        ),
+      }
+    })
+  },
 
-        setSearchTerm: (term) =>
-          set((state) => {
-            state.searchTerm = term
-            get().filterDepartments()
-          }),
+  updateDepartment: (id, updates) => {
+    set((state) => {
+      const updatedDepartments = state.departments.map((dep) => (dep.id === id ? { ...dep, ...updates } : dep))
+      return {
+        departments: updatedDepartments,
+        filteredDepartments: updatedDepartments.filter(
+          (dep) =>
+            dep.name.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
+            dep.description.toLowerCase().includes(state.searchTerm.toLowerCase()),
+        ),
+      }
+    })
+  },
 
-        setLoading: (loading) =>
-          set((state) => {
-            state.isLoading = loading
-          }),
+  deleteDepartment: (id) => {
+    set((state) => {
+      const updatedDepartments = state.departments.filter((dep) => dep.id !== id)
+      return {
+        departments: updatedDepartments,
+        filteredDepartments: updatedDepartments.filter(
+          (dep) =>
+            dep.name.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
+            dep.description.toLowerCase().includes(state.searchTerm.toLowerCase()),
+        ),
+      }
+    })
+  },
 
-        setDialogOpen: (open) =>
-          set((state) => {
-            state.isDialogOpen = open
-          }),
+  setSearchTerm: (term) => {
+    set((state) => ({
+      searchTerm: term,
+      filteredDepartments: state.departments.filter(
+        (dep) =>
+          dep.name.toLowerCase().includes(term.toLowerCase()) ||
+          dep.description.toLowerCase().includes(term.toLowerCase()) ||
+          dep.manager.toLowerCase().includes(term.toLowerCase()),
+      ),
+    }))
+  },
 
-        setSelectedDepartment: (department) =>
-          set((state) => {
-            state.selectedDepartment = department
-          }),
-
-        filterDepartments: () =>
-          set((state) => {
-            const term = state.searchTerm.toLowerCase()
-            state.filteredDepartments = state.departments.filter(
-              (dept) => dept.name.toLowerCase().includes(term) || dept.description.toLowerCase().includes(term),
-            )
-          }),
-
-        fetchDepartments: async () => {
-          set((state) => {
-            state.isLoading = true
-          })
-
-          try {
-            // Simulate API call
-            await new Promise((resolve) => setTimeout(resolve, 800))
-
-            // Mock data - replace with actual API call
-            const mockDepartments: Department[] = [
-              {
-                id: 1,
-                name: "Maintenance",
-                description: "General facility maintenance and repairs",
-                manager: "John Smith",
-                employeeCount: 12,
-                status: "active",
-              },
-              {
-                id: 2,
-                name: "HVAC",
-                description: "Heating, ventilation, and air conditioning",
-                manager: "Sarah Johnson",
-                employeeCount: 8,
-                status: "active",
-              },
-              {
-                id: 3,
-                name: "Electrical",
-                description: "Electrical systems and power management",
-                manager: "Mike Wilson",
-                employeeCount: 6,
-                status: "active",
-              },
-              {
-                id: 4,
-                name: "Plumbing",
-                description: "Water systems and plumbing maintenance",
-                manager: "Lisa Brown",
-                employeeCount: 4,
-                status: "inactive",
-              },
-            ]
-
-            set((state) => {
-              state.departments = mockDepartments
-              state.filteredDepartments = mockDepartments
-              state.isLoading = false
-            })
-          } catch (error) {
-            set((state) => {
-              state.isLoading = false
-            })
-          }
-        },
-      })),
-      {
-        name: "departments-storage",
-        partialize: (state) => ({
-          departments: state.departments,
-        }),
-      },
-    ),
-    { name: "departments-store" },
-  ),
-)
+  setDialogOpen: (open) => set({ isDialogOpen: open }),
+  setEditingDepartment: (department) => set({ editingDepartment: department, isDialogOpen: !!department }),
+}))
