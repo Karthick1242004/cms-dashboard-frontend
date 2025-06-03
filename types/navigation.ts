@@ -2,6 +2,7 @@ export interface NavigationItem {
   name: string
   href: string
   iconName: string
+  subItems?: NavigationItem[]
 }
 
 export interface NavigationState {
