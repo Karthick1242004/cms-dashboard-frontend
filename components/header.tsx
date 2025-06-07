@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils"
 import { useEffect, useState } from "react"
 import { useAuthStore } from "@/stores/auth-store"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 
 export function Header() {
   const router = useRouter()
@@ -123,16 +124,16 @@ export function Header() {
                       {user?.role}
                     </Badge>
                   </div>
-                  <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
-                  <p className="text-xs leading-none text-muted-foreground">{user?.department}</p>
+                  <p className="text-xs leading-none text-muted-foreground">{user?.email} {user?.department}</p>
+                  <p className="text-xs leading-none text-muted-foreground"></p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <a href="/profile">Profile</a>
+                <Link href="/profile">Profile</Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <a href="/settings">Settings</a>
+                <Link href="/settings">Settings</Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout} className="text-red-600 cursor-pointer">
